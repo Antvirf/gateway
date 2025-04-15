@@ -13,6 +13,10 @@ import (
 	gwapiv1a2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 )
 
+// MaxConditionMessageLength is the maximum length for condition messages
+// Kubernetes has a limit of 32768 characters for condition messages
+const MaxConditionMessageLength = 32700
+
 type PolicyResolveError struct {
 	Reason  gwapiv1a2.PolicyConditionReason
 	Message string
@@ -73,7 +77,13 @@ func SetConditionForPolicyAncestor(policyStatus *gwapiv1a2.PolicyStatus, ancesto
 		policyStatus.Ancestors = []gwapiv1a2.PolicyAncestorStatus{}
 	}
 
-	cond := newCondition(string(conditionType), status, string(reason), message, time.Now(), generation)
+	// Truncate message if it exceeds the maximum length
+	truncatedMessage := message
+	if len(message) > MaxConditionMessageLength {
+		truncatedMessage = message[:MaxConditionMessageLength] + " [truncated]"
+	}
+
+	cond := newCondition(string(conditionType), status, string(reason), truncatedMessage, time.Now(), generation)
 
 	// Add condition for exist PolicyAncestorStatus.
 	for i, ancestor := range policyStatus.Ancestors {
